@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QApplication, QWidget,QVBoxLayout,QHBoxLayout, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile
-from PyQt6.QtCore import QUrl, QThreadPool
+from PyQt6.QtCore import QUrl, QThreadPool, Qt 
 
-from feeds import FetchFeed
+from feeds import updateFeeds
 
 # Only needed for access to command line arguments
 import sys
@@ -40,10 +40,10 @@ window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 
 
 # Start the event loop.
-
-fetch = FetchFeed()
-fetch.fetched.connect(lambda: items.initialize(fetch.d))
-fetch.getFeeds()
+updateFeeds(items.initialize)
+# fetch = FetchFeed()
+# fetch.fetched.connect(lambda: items.initialize(fetch.d))
+# fetch.getFeeds()
 app.exec()
 
 
