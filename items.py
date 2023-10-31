@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QTextEdit,QFr
 from PyQt6.QtGui import QTextDocument, QPixmap
 from PyQt6.QtCore import QUrl, Qt
 from card import Card
+from queue import Queue, Empty
 
 
 class Items(QWidget):
@@ -22,9 +23,17 @@ class Items(QWidget):
             self.layout.addWidget(item)
             item.c.clicked.connect(lambda entry=entry: self.clickItem(entry))
 
-    def initialize(self, data):
+    def initialize(self, feeds):
         # self.layout = QVBoxLayout()
-        self.add_items(data)
+        # try:
+            # feed = feeds.get()
+            # print("New Feed:", feed.entries[0].title)
+            # self.add_items(feed)
+        # except Empty:
+        #     pass
+        # else:
+        #     feeds.task_done()
+        self.add_items(feeds)
 
         # self.setLayout(self.layout)
         self.updateGeometry()

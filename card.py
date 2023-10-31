@@ -52,15 +52,14 @@ class Card(QFrame):
             layout.addWidget(icon)
 
         else:
-            print("No URL found!")
-            print(self.entry.title, self.entry.image_url)
+            print("No Image URL found!")
 
         layout.addWidget(description)
         title_layout = QVBoxLayout()
 
         self.setObjectName("Card")
         # self.setStyleSheet("border: 1px solid red;")
-        self.setStyleSheet("QFrame#Card{ border-top:1px solid black; }")
+        self.setStyleSheet("QFrame#Card{ border-top:3px solid gray; background:white; }")
 
         title = QLabel()
         title.setText(entry.title)

@@ -3,7 +3,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile
 from PyQt6.QtCore import QUrl, QThreadPool, Qt 
 
-from feeds import updateFeeds
+from feeds import updateFeeds, tasks
 
 # Only needed for access to command line arguments
 import sys
@@ -38,9 +38,8 @@ layout.addStretch()
 window.setLayout(layout)
 window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 
-
 # Start the event loop.
-updateFeeds(items.initialize)
+updateFeeds(items.initialize, app.aboutToQuit)
 # fetch = FetchFeed()
 # fetch.fetched.connect(lambda: items.initialize(fetch.d))
 # fetch.getFeeds()
