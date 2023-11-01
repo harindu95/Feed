@@ -6,20 +6,13 @@ import sys
 import requests
 
 
-def process_description(doc, text):
-    doc.setHtml(text)
-    plain = doc.toPlainText()
+def process_description(text):
+    from bs4 import BeautifulSoup
+
+    plain = ' '.join(BeautifulSoup(text, "html.parser").findAll(text=True))  
+    # doc.setHtml(text)
+    # plain = doc.toPlainText()
     return plain.strip()
-
-
-def get_image(path):
-    try:
-        # url_data = urllib.request.urlopen(path).read()
-        request = requests.get(path)
-        return request.content
-    except:
-        print("Can't access url:", path, file=sys.stderr)
-        return None
 
 
 def trim_description(desc):
@@ -43,7 +36,7 @@ class Card(QFrame):
         self.setLayout(layout)
         
         if self.entry.image_url != '':
-            image = get_image(self.entry.image_url)
+            image = self.entry.image_data
             self.pixmap = QPixmap()
             self.pixmap.loadFromData(image)
             self.pixmap = self.pixmap.scaled(160, 160, Qt.AspectRatioMode.KeepAspectRatio)
@@ -62,7 +55,7 @@ class Card(QFrame):
         self.setStyleSheet("QFrame#Card{ border-top:3px solid gray; background:white; }")
 
         title = QLabel()
-        title.setText(entry.title)
+        title.setText(process_description(entry.title))
         title_font = title.font()
         title_font.setPointSize(12)
         title.setFont(title_font)
@@ -70,7 +63,7 @@ class Card(QFrame):
         title_layout.addWidget(title)
         description.setLayout(title_layout)
 
-        self.content = process_description(doc, entry.summary)
+        self.content = process_description(entry.summary)
         self.hidden = True
         subtitle = QLabel()
         subtitle.setText(trim_description(self.content))
