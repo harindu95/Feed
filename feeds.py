@@ -5,35 +5,32 @@ import asyncio
 import aiohttp
 import feedparser
 from PyQt6.QtCore import QRunnable, QUrl
-from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool, QThread, QTimer
+from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool
 import PyQt6.QtNetwork as QtNetwork
 from queue import Queue
+from common import Connection
 
 
-class Connection(QObject):
-    done = pyqtSignal()
 
 
 tasks = []
 
 
 def updateFeeds(callback, end):
-    urls = ['https://www.theverge.com/rss/frontpage',
-            'http://www.reddit.com/r/Buddhism/.rss',
-            'https://www.youtube.com/feeds/videos.xml?playlist_id=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-']
+    from config import urls
     # for url in urls:
     #     fetch = FetchFeed(url)
     #     fetch.c.done.connect(lambda fetch=fetch: callback(
     #         fetch.feed), Qt.ConnectionType.QueuedConnection)
     #     QThreadPool.globalInstance().start(fetch)
-
-    fetch = AsyncFetchFeeds(urls)
-    fetch.setAutoDelete(False)
-    tasks.append(fetch)
-    end.connect(fetch.quit)
-    fetch.c.done.connect(lambda fetch=fetch: callback(
-        fetch.feeds), Qt.ConnectionType.AutoConnection)
-    QThreadPool.globalInstance().start(fetch)
+    for url in urls:
+        fetch = AsyncFetchFeeds([url])
+        fetch.setAutoDelete(False)
+        tasks.append(fetch)
+        end.connect(fetch.quit)
+        fetch.c.done.connect(lambda fetch=fetch: callback(
+            fetch.feeds), Qt.ConnectionType.AutoConnection)
+        QThreadPool.globalInstance().start(fetch)
 
     # def check_feeds(fetch):
     #     # timer.start(100)
@@ -104,6 +101,12 @@ def run_in_executor(f):
     return inner
 
 
+async def get_image(path):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(path) as response:
+            return await response.read()
+
+
 @run_in_executor
 def parse_image(content):
     import lxml.etree
@@ -114,12 +117,35 @@ def parse_image(content):
     if len(images) > 0:
         return images[0]
     else:
-        return ''
+        images = tree.xpath("///video/@poster")
+        if len(images) > 0:
+            return images[0]
+        else:
+            return ''
 
 
 @run_in_executor
 def parse_rss(html):
     return feedparser.parse(html)
+
+
+def keys_exists(element, *keys):
+    '''
+    Check if *keys (nested) exists in `element` (dict).
+    '''
+    if not isinstance(element, dict):
+        raise AttributeError('keys_exists() expects dict as first argument.')
+    if len(keys) == 0:
+        raise AttributeError(
+            'keys_exists() expects at least two arguments, one given.')
+
+    _element = element
+    for key in keys:
+        try:
+            _element = _element[key]
+        except KeyError:
+            return False
+    return True
 
 
 class AsyncFetchFeeds(QRunnable):
@@ -136,12 +162,12 @@ class AsyncFetchFeeds(QRunnable):
         for task in asyncio.Task.all_tasks():
             if not task.done():
                 task.cancel()
-        
+
         self.loop.stop()
 
     def quit(self):
         print("AsyncFetchFeeds:exit About to Quit")
-        self.exit = True        
+        self.exit = True
         self.loop.call_soon_threadsafe(self.loop_exit)
         self.setAutoDelete(True)
         QThreadPool.globalInstance().clear()
@@ -150,10 +176,22 @@ class AsyncFetchFeeds(QRunnable):
 
         for post in rss.entries:
             # print(post.title)
+            post.title = post.title if 'title' in post else ''
             if "media_thumbnail" in post:
                 post.image_url = post.media_thumbnail[0]['url']
             else:
                 post.image_url = await parse_image(post.summary)
+                if post.image_url == '':
+                    try:
+                        post.image_url = rss.feed.logo
+                        # post.image_url = rss.feed.icon
+
+                    except Exception:
+                        print(rss.feed)
+                        pass
+
+            if post.image_url != '':
+                post.image_data = await get_image(post.image_url)
 
         self.feeds = rss
         print("FetchFeeds:handle_request: Signal emit")
@@ -171,12 +209,14 @@ class AsyncFetchFeeds(QRunnable):
 
         if self.exit:
             return
+        
+        headers = {'UserAgent':'Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'}
 
         for feed in self.record:
-            async with aiohttp.ClientSession(loop=loop) as session:
-                await asyncio.sleep(2)
-                html = await fetch(session, feed['url'])
-                rss = await parse_rss(html)
+            # async with aiohttp.ClientSession(loop=loop,headers=headers) as session:
+            #     # await asyncio.sleep(2)
+            #     html = await fetch(session, feed['url'])
+                rss = await parse_rss(feed['url'])
 
                 if feed['last']:
                     if feed['last']['title'] != rss['entries'][0]['title'] and feed['last']['link'] != rss['entries'][0]['link']:
@@ -186,10 +226,12 @@ class AsyncFetchFeeds(QRunnable):
                         # print("MSG {}".format(feed['last']['title']))
                         # print("MSG {}".format(feed['last']['link']))
                 else:
-                    feed['last'] = rss['entries'][0]
-                    print("new entry")
-                    await self.process_feed(rss)
-
+                    try:
+                        feed['last'] = rss['entries'][0]
+                        print("new entry")
+                        await self.process_feed(rss)
+                    except IndexError:
+                        print(rss)
         if self.exit != True:
             await asyncio.sleep(INTERVAL)
 
@@ -210,4 +252,3 @@ class AsyncFetchFeeds(QRunnable):
                 else:
                     print(err)
             QThreadPool.globalInstance().start(self)
-        
