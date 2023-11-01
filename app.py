@@ -38,6 +38,8 @@ layout.addStretch()
 window.setLayout(layout)
 window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 
+from keywords import extract_keywords
+view.loadFinished.connect(lambda load,view=view: extract_keywords(view))
 # Start the event loop.
 updateFeeds(items.initialize, app.aboutToQuit)
 # fetch = FetchFeed()
