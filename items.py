@@ -20,6 +20,7 @@ class Items(QWidget):
         doc = QTextDocument()
         for entry in data.entries:
             item = Card(entry,doc,parent=self)
+            # self.layout.insertWidget(0,item)
             self.layout.addWidget(item)
             item.c.clicked.connect(lambda entry=entry: self.clickItem(entry))
 
