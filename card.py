@@ -9,7 +9,7 @@ import requests
 def process_description(text):
     from bs4 import BeautifulSoup
 
-    plain = ' '.join(BeautifulSoup(text, "html.parser").findAll(text=True))  
+    plain = ' '.join(BeautifulSoup(text, "html.parser").findAll(text=True))
     # doc.setHtml(text)
     # plain = doc.toPlainText()
     return plain.strip()
@@ -25,7 +25,7 @@ class Connection(QObject):
 
 class Card(QFrame):
 
-    def __init__(self, entry, doc: QTextDocument, *args, **kwargs):
+    def __init__(self, entry, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.entry = entry
         self.c = Connection()
@@ -34,12 +34,13 @@ class Card(QFrame):
         description = QWidget()
         layout = QHBoxLayout()
         self.setLayout(layout)
-        
+
         if self.entry.image_url != '':
             image = self.entry.image_data
             self.pixmap = QPixmap()
             self.pixmap.loadFromData(image)
-            self.pixmap = self.pixmap.scaled(160, 160, Qt.AspectRatioMode.KeepAspectRatio)
+            self.pixmap = self.pixmap.scaled(
+                160, 160, Qt.AspectRatioMode.KeepAspectRatio)
             icon.setPixmap(self.pixmap)
             icon.setFixedWidth(160)
             layout.addWidget(icon)
@@ -52,7 +53,8 @@ class Card(QFrame):
 
         self.setObjectName("Card")
         # self.setStyleSheet("border: 1px solid red;")
-        self.setStyleSheet("QFrame#Card{ border-top:3px solid gray; background:white; }")
+        self.setStyleSheet(
+            "QFrame#Card{ border-top:3px solid gray; background:white; }")
 
         title = QLabel()
         title.setText(process_description(entry.title))
