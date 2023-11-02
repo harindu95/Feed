@@ -5,30 +5,50 @@ import pandas as pd
 from sklearn import cluster
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QRunnable, QUrl
-from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool
+from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool, QTimer
 from keybert import KeyBERT
 from common import Connection
 
 stats = {}
 
-def show_clusters(task,view:QWebEngineView):
+
+def show_clusters(task, view: QWebEngineView):
     images = task.word_clouds
     html = "<html><body>{}</body></html>"
     body = ""
     x = 0
     for img in images:
         svg = img.to_svg()
-        section = "<div>{}<p>Cluster {}</p></div>".format(svg, x)
-        body += section
+        # section = "<div>{}<p>Cluster {}</p></div>".format(svg, x)
+        section = "<div style='margin:10px'>{}</div>"
+        body += section.format(svg)
         x += 1
 
     html = html.format(body)
-    view.page().setHtml(html, QUrl("about:wordcloud"))
+    # view.page().setHtml(html, QUrl("about:wordcloud"))
 
-def extract_keywords(view: QWebEngineView,callback=show_clusters):
+
+started_urls = {}
+
+
+def extract_keywords(view: QWebEngineView, finished, items, callback=show_clusters):
+    if finished == 0:
+        started_urls[(view.page().url().toString())] = True
+        QTimer.singleShot(500, lambda view=view,
+                          items=items: extract_keywords(view, 2, items))
+        return
+    elif finished == 1:
+        try:
+            started_urls[view.page().url().toString()] = False
+            return
+        except KeyError:
+            pass
+
     def handle_txt(txt):
-        task = KeywordTask(txt, stats)
-        task.c.done.connect(lambda task=task,view=view: callback(task,view))
+        if len(txt.strip()) < 1:
+            return
+        task = KeywordTask(txt, items)
+        task.c.done.connect(lambda task=task, view=view: callback(task, view))
         QThreadPool.globalInstance().start(task)
         # print(txt)
     from common import plain_text
@@ -37,14 +57,12 @@ def extract_keywords(view: QWebEngineView,callback=show_clusters):
             # view.page().toHtml(lambda html: print(plain_text(html)))
             # view.page().toPlainText(lambda txt: print(txt))
             return
-        # print(view.page().url().toString())
+        print(view.page().url().toString())
         view.page().toPlainText(handle_txt)
     # print(text)
 
 
 # K-Means
-
-corpus = []
 
 
 def run_KMeans(max_k, data):
@@ -87,30 +105,29 @@ def plotWords(dfs, n_feats):
         print(dfs[i])
         # plt.show()
 
+
 def centroidsDict(centroids, index):
-    a = centroids.T[index].sort_values(ascending = False).reset_index().values
+    a = centroids.T[index].sort_values(ascending=False).reset_index().values
     centroid_dict = dict()
 
     for i in range(0, len(a)):
-        centroid_dict.update( {a[i,0] : a[i,1]} )
+        centroid_dict.update({a[i, 0]: a[i, 1]})
 
     return centroid_dict
 
 
+class RankPosts(QRunnable):
 
-
-class KeywordTask(QRunnable):
-
-    def __init__(self, txt, stats, *args, **kwargs):
+    def __init__(self, kmeans, centroids, items, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.txt = txt
-        self.stats = stats
-        self.word_clouds = []
+        self.items = items
+        self.kmeans = kmeans
+        self.centroids = centroids
         self.c = Connection()
 
-    def process_corpus(self):
+    def process_corpus(self, txt):
         index = 0
-        corpus = [self.txt, 'Second document two']
+        corpus = [txt]
         # Replaces the ASCII '�' symbol with '8'
         corpus[index] = corpus[index].replace(u'\ufffd', '8')
         corpus[index] = corpus[index].replace(
@@ -131,6 +148,66 @@ class KeywordTask(QRunnable):
         corpus[index] = re.sub(r'www\S+', '', corpus[index])
         return corpus
 
+    def process_txt(self, txt):
+        vectorizer = TfidfVectorizer(stop_words='english')
+        X = vectorizer.fit_transform(txt)
+        features = vectorizer.get_feature_names_out()
+        tf_idf = pd.DataFrame(data=X.toarray(), columns=features)
+        # final_df = tf_idf
+        # for index,row in self.centroids.iterrows():
+            # tf_idf.mul(row, fill_value=0)
+
+        # print(self.centroids)
+        values = []
+        for i in range(len(self.centroids)):
+            # print(self.centroids.iloc[[i]])
+            r = self.centroids.iloc[[i]]
+            # print(r)
+            # # print("r.T",r.T)
+            t = tf_idf.mul(r,axis='columns', fill_value=0)
+            # print("t")
+            # print(t)
+            sum = t.sum(axis='columns')
+            # print("Cluster:{}".format(i),sum.iat[0])
+            values.append(sum.iat[0])
+
+        return values
+        # sum =tf_idf.sum()
+        # print(sum.iat[0])
+        # for tuple in self.centroids.itertuples():
+        #     print('iter: ',i)
+        #     print(tuple)
+        #     i += 1
+
+    def run(self):
+        for item in self.items.items:
+            txt = item.title + item.description
+            values = self.process_txt(self.process_corpus(txt))
+            max_val = max(values)
+            item.rank = max_val
+        self.items.items.sort(reverse=True, key=lambda x:x.rank)
+        self.c.done.connect(self.items.updateUi)
+        self.c.done.emit()
+
+    def createTask(kmeans, centroids, items):
+        task = RankPosts(kmeans, centroids, items)
+        QThreadPool.globalInstance().start(task)
+
+
+corpus = []
+
+
+class KeywordTask(QRunnable):
+
+    def __init__(self, txt, items, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.items = items
+        self.txt = txt
+        self.word_clouds = []
+        self.c = Connection()
+
+    
+
     def run(self):
         corpus.append(self.txt)
         # if len(corpus) < 2:
@@ -149,25 +226,19 @@ class KeywordTask(QRunnable):
         kmeans_results = run_KMeans(k, final_df)
 
         best_result = k
-        if(k > 3):
+        if (k > 3):
             import math
-            # best_result = math.floor((k+1)/2) 
+            # best_result = math.floor((k+1)/2)
             best_result = k
         # kmeans = kmeans_results.get(best_result)
-        print("k: {} best:{} kmeans:{}".format(k,best_result, kmeans_results))
+        print("k: {} best:{} kmeans:{}".format(k, best_result, kmeans_results))
         kmeans = kmeans_results.get(best_result)
-
-        final_df_array = final_df.to_numpy()
-        prediction = kmeans.predict(final_df)
-        n_feats = 50
-        dfs = get_top_features_cluster(
-            features, final_df_array, prediction, n_feats)      
 
         centroids = pd.DataFrame(kmeans.cluster_centers_)
         centroids.columns = final_df.columns
+        RankPosts.createTask(kmeans, centroids, self.items)
         self.generateWordClouds(centroids)
         self.c.done.emit()
-
 
         # kw_model = KeyBERT()
         # keywords = kw_model.extract_keywords(self.txt)
@@ -179,14 +250,12 @@ class KeywordTask(QRunnable):
         # print("{} rows".format(final_df.shape[0]))
         # print(final_df.T.nlargest(20, 0))
         # print(self.stats)
-    
-    def generateWordClouds(self,centroids):
+
+    def generateWordClouds(self, centroids):
         from wordcloud import WordCloud
-        
+
         for i in range(0, len(centroids)):
-            wordcloud = WordCloud(max_font_size=100, background_color = 'white')
-            centroid_dict = centroidsDict(centroids, i)        
+            wordcloud = WordCloud(max_font_size=100, background_color='white')
+            centroid_dict = centroidsDict(centroids, i)
             wordcloud.generate_from_frequencies(centroid_dict)
             self.word_clouds.append(wordcloud)
-
-        
