@@ -8,9 +8,10 @@ from queue import Queue, Empty
 
 class Items(QWidget):
 
-    def __init__(self, view, window, *args, **kwargs):
+    def __init__(self, view, scroll, settings, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.window = window
+        self.scroll = scroll
+        self.settings = settings
         self.items = []
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -49,3 +50,6 @@ class Items(QWidget):
 
     def clickItem(self, entry):
         self.view.load(QUrl(entry.link))
+    def set_wordclouds(self, wordclouds):
+        print('wordclouds', len(wordclouds))
+        self.settings.word_clouds = wordclouds

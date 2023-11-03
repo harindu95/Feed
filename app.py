@@ -6,6 +6,7 @@ from PyQt6.QtWebEngineCore import QWebEngineProfile
 from PyQt6.QtCore import QUrl, QThreadPool, Qt, QTimer
 
 from feeds import updateFeeds, tasks
+from toolbar import Toolbar
 
 # Only needed for access to command line arguments
 import sys
@@ -23,9 +24,13 @@ window.setStyleSheet(style)
 window.setWindowTitle('Feed')
 layout = QHBoxLayout()
 
+from settings import Settings
+settings = Settings()
+
 view = QWebEngineView()
 view.setObjectName('web-engine-view')
 scroll = QScrollArea()
+items = Items(view, scroll,settings)
 scroll.setWidget(items)
 scroll.setObjectName('scroll-area')
 scroll.setWidgetResizable(True)
@@ -37,14 +42,15 @@ view.load(QUrl("https://duckduckgo.com"))
 window.resize(1224, 750)
 # Disable cookies
 layout.addWidget(view,stretch=1)
+toolbar = Toolbar(items,view,settings)
+toolbar.callback = view
+layout.addWidget(toolbar)
 layout.addStretch()
 window.setLayout(layout)
 window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 
-view.loadFinished.connect(lambda load, view=view,
-                          items=items: extract_keywords(view, 1, items))
-view.loadStarted.connect(
-    lambda view=view, items=items: extract_keywords(view, 0, items))
+view.page().loadingChanged.connect(
+    lambda loadinfo,view=view: extract_text(view, loadinfo, settings))
 # Start the event loop.
 updateFeeds(items.initialize, app.aboutToQuit)
 # fetch = FetchFeed()

@@ -12,54 +12,28 @@ from common import Connection
 stats = {}
 
 
-def show_clusters(task, view: QWebEngineView):
-    images = task.word_clouds
-    html = "<html><body>{}</body></html>"
-    body = ""
-    x = 0
-    for img in images:
-        svg = img.to_svg()
-        # section = "<div>{}<p>Cluster {}</p></div>".format(svg, x)
-        section = "<div style='margin:10px'>{}</div>"
-        body += section.format(svg)
-        x += 1
 
-    html = html.format(body)
-    # view.page().setHtml(html, QUrl("about:wordcloud"))
 
 
 started_urls = {}
 
 
-def extract_keywords(view: QWebEngineView, finished, items, callback=show_clusters):
-    if finished == 0:
-        started_urls[(view.page().url().toString())] = True
-        QTimer.singleShot(500, lambda view=view,
-                          items=items: extract_keywords(view, 2, items))
-        return
-    elif finished == 1:
-        try:
-            started_urls[view.page().url().toString()] = False
+def extract_text(view: QWebEngineView, loadinfo,settings):
+    
+    url = view.page().url().toString()
+    if url.startswith('about:') :
             return
-        except KeyError:
-            pass
-
+    status = loadinfo.status()
+ 
     def handle_txt(txt):
+        if txt is None:
+            return
         if len(txt.strip()) < 1:
             return
-        task = KeywordTask(txt, items)
-        task.c.done.connect(lambda task=task, view=view: callback(task, view))
-        QThreadPool.globalInstance().start(task)
         # print(txt)
-    from common import plain_text
-    if view.page().url().toString() != "about:wordcloud":
-        if "youtube" in view.page().url().toString():
-            # view.page().toHtml(lambda html: print(plain_text(html)))
-            # view.page().toPlainText(lambda txt: print(txt))
-            return
-        print(view.page().url().toString())
-        view.page().toPlainText(handle_txt)
-    # print(text)
+        task = GetText(txt,settings.corpus)
+        task.run()
+        QThreadPool.globalInstance().start(task,3)
 
 
 # K-Means
