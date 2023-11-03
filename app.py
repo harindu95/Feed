@@ -17,13 +17,17 @@ app = QApplication(sys.argv)
 
 # Create a Qt widget, which will be our window.
 window = QWidget()
+window.setObjectName('window')
+style = '\n'.join(open('style.css').readlines())
+window.setStyleSheet(style)
 window.setWindowTitle('Feed')
 layout = QHBoxLayout()
 
 view = QWebEngineView()
-items = Items(view, window)
+view.setObjectName('web-engine-view')
 scroll = QScrollArea()
 scroll.setWidget(items)
+scroll.setObjectName('scroll-area')
 scroll.setWidgetResizable(True)
 scroll.setMinimumWidth(500)
 layout.addWidget(scroll)
@@ -32,9 +36,7 @@ layout.addWidget(scroll)
 view.load(QUrl("https://duckduckgo.com"))
 window.resize(1224, 750)
 # Disable cookies
-view.page().profile().setPersistentCookiesPolicy(
-    QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
-layout.addWidget(view)
+layout.addWidget(view,stretch=1)
 layout.addStretch()
 window.setLayout(layout)
 window.show()  # IMPORTANT!!!!! Windows are hidden by default.
