@@ -1,0 +1,59 @@
+#window,
+#scroll-area,
+#toolbar,
+#items,
+#card {
+  /* background-color: white; */
+  /* color: white; */
+  background-color: white;
+}
+
+#card {
+  border-top: 3px solid rgb(201, 188, 188);
+  /* color: white; */
+  font-size: 12pt;
+  /* background: white; */
+}
+
+#card #title {
+  font-size: 14pt;
+}
+
+#card #title,
+#card #subtitle {
+  /* color: white; */
+}
+
+#scroll-area QScrollBar {
+  background-color: white;
+}
+
+#scroll-area QScrollBar:vertical {
+  background-color: white;
+  width: 10px;
+  margin: 15px 3px 15px 3px;
+  border: 1px transparent #2a2929;
+  border-radius: 2px;
+}
+#scroll-area QScrollBar::up-arrow:vertical,
+#scroll-area QScrollBar::down-arrow:vertical {
+    background-color: black;
+}
+
+#scroll-area QScrollBar::add-line:vertical, #scroll-area QScrollBar::sub-line:vertical{
+    background-color: gray;
+    height: 0px;
+    width: 0px;
+}
+
+#scroll-area QScrollBar::handle:vertical {
+  background-color: gray;
+  min-height: 60px;
+  border-radius: 2px;
+}
+
+#scroll-area QScrollBar:vertical:hover {
+  /* width: 8px; */
+  margin: 15px 2px 15px 2px;
+  border-radius: 4px;
+}

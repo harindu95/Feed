@@ -40,7 +40,7 @@ class Card(QFrame):
             self.pixmap = QPixmap()
             self.pixmap.loadFromData(image)
             self.pixmap = self.pixmap.scaled(
-                160, 160, Qt.AspectRatioMode.KeepAspectRatio)
+                200, 160, Qt.AspectRatioMode.KeepAspectRatio,transformMode = Qt.TransformationMode.SmoothTransformation)
             icon.setPixmap(self.pixmap)
             icon.setFixedWidth(160)
             layout.addWidget(icon)
@@ -51,16 +51,17 @@ class Card(QFrame):
         layout.addWidget(description)
         title_layout = QVBoxLayout()
 
-        self.setObjectName("Card")
+        self.setObjectName("card")
         # self.setStyleSheet("border: 1px solid red;")
-        self.setStyleSheet(
-            "QFrame#Card{ border-top:3px solid gray; background:white; }")
+        # self.setStyleSheet(
+        #     "QFrame#Card{ border-top:3px solid gray; background:white; }")
 
         title = QLabel()
         title.setText(process_description(entry.title))
-        title_font = title.font()
-        title_font.setPointSize(12)
-        title.setFont(title_font)
+        title.setObjectName('title')
+        # title_font = title.font()
+        # title_font.setPointSize(12)
+        # title.setFont(title_font)
         title.setWordWrap(True)
         title_layout.addWidget(title)
         description.setLayout(title_layout)
@@ -69,6 +70,7 @@ class Card(QFrame):
         self.hidden = True
         subtitle = QLabel()
         subtitle.setText(trim_description(self.content))
+        subtitle.setObjectName('subtitle')
         subtitle.setWordWrap(True)
         title_layout.addWidget(subtitle)
 
