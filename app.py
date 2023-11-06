@@ -24,13 +24,12 @@ window.setStyleSheet(style)
 window.setWindowTitle('Feed')
 layout = QHBoxLayout()
 
-from settings import Settings
-settings = Settings()
+from application import application
 
 view = QWebEngineView()
 view.setObjectName('web-engine-view')
 scroll = QScrollArea()
-items = Items(view, scroll,settings)
+items = Items(view, scroll,application)
 scroll.setWidget(items)
 scroll.setObjectName('scroll-area')
 scroll.setWidgetResizable(True)
@@ -42,7 +41,7 @@ view.load(QUrl("https://duckduckgo.com"))
 window.resize(1224, 750)
 # Disable cookies
 layout.addWidget(view,stretch=1)
-toolbar = Toolbar(items,view,settings)
+toolbar = Toolbar(items,view,application)
 toolbar.callback = view
 layout.addWidget(toolbar)
 layout.addStretch()
@@ -54,7 +53,7 @@ view.page().loadingChanged.connect(
 # Start the event loop.
 updateFeeds(items.initialize, app.aboutToQuit)
 # fetch = FetchFeed()
-# fetch.fetched.connect(lambda: items.initialize(fetch.d))
+app.aboutToQuit.connect(application.close_threads)
 # fetch.getFeeds()
 app.exec()
 
