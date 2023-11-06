@@ -8,21 +8,7 @@
   background-color: white;
 }
 
-#card {
-  border-top: 3px solid rgb(201, 188, 188);
-  /* color: white; */
-  font-size: 12pt;
-  /* background: white; */
-}
 
-#card #title {
-  font-size: 14pt;
-}
-
-#card #title,
-#card #subtitle {
-  /* color: white; */
-}
 
 #scroll-area QScrollBar {
   background-color: white;
@@ -56,4 +42,9 @@
   /* width: 8px; */
   margin: 15px 2px 15px 2px;
   border-radius: 4px;
+}
+
+QListView,
+QListView::item {
+  background-color: white;
 }

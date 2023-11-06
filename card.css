@@ -1,0 +1,15 @@
+#card {
+    border-top: 3px solid rgb(201, 188, 188);
+    /* color: white; */
+    font-size: 12pt;
+    background-color: white;
+  }
+  
+  #card #title {
+    font-size: 14pt;
+  }
+  
+  #card #title,
+  #card #subtitle {
+    /* color: white; */
+  }
