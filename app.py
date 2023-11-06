@@ -1,11 +1,12 @@
-from keywords import extract_keywords
+from keywords import extract_text
 from items import Items
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile
-from PyQt6.QtCore import QThreadPool, Qt
+# from PyQt6.QtWebChannel import QWebChannel
+from PyQt6.QtCore import QUrl, QThreadPool, Qt
+from PyQt6.QtGui import QColor
 
-from feeds import updateFeeds, tasks
 from toolbar import Toolbar
 
 # Only needed for access to command line arguments
@@ -26,12 +27,17 @@ layout = QHBoxLayout()
 
 from application import application
 
+# view = createEngineView(settings)
 view = QWebEngineView()
 view.setObjectName('web-engine-view')
 from browser import setupWebEngine
 setupWebEngine(view,application)
 
+
 scroll = QScrollArea()
+# scroll.verticalScrollBar().setObjectName('ver')
+
+
 items = Items(view, scroll,application)
 scroll.setWidget(items)
 scroll.setObjectName('scroll-area')
@@ -42,10 +48,12 @@ layout.addWidget(scroll)
 QThreadPool.globalInstance().setMaxThreadCount(8)
 
 
-view.load(QUrl("https://duckduckgo.com"))
 window.resize(1224, 750)
 # Disable cookies
+# view.page().setBackgroundColor(QColor('gray'))
+
 layout.addWidget(view,stretch=1)
+
 toolbar = Toolbar(items,view,application)
 toolbar.callback = view
 layout.addWidget(toolbar)
@@ -54,12 +62,12 @@ window.setLayout(layout)
 window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 
 view.page().loadingChanged.connect(
-    lambda loadinfo,view=view: extract_text(view, loadinfo, settings))
+    lambda loadinfo,view=view: extract_text(view, loadinfo, application))
 # Start the event loop.
-updateFeeds(items.initialize, app.aboutToQuit)
-# fetch = FetchFeed()
+
+
 app.aboutToQuit.connect(application.close_threads)
-# fetch.getFeeds()
+
 app.exec()
 
 

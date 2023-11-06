@@ -1,10 +1,12 @@
+from items import Items
 import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
 from sklearn import cluster
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QRunnable, QUrl
+from PyQt6.QtWebEngineCore import QWebEngineLoadingInfo, QWebEngineScript
+from PyQt6.QtCore import QRunnable, QUrl, QFile
 from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool, QTimer
 from keybert import KeyBERT
 from common import Connection
@@ -12,28 +14,39 @@ from common import Connection
 stats = {}
 
 
-
-
-
 started_urls = {}
 
 
-def extract_text(view: QWebEngineView, loadinfo,settings):
-    
+def extract_text(view: QWebEngineView, loadinfo, settings):
+
     url = view.page().url().toString()
-    if url.startswith('about:') :
-            return
+    if url.startswith('about:'):
+        return
     status = loadinfo.status()
- 
+
     def handle_txt(txt):
         if txt is None:
             return
         if len(txt.strip()) < 1:
             return
         # print(txt)
-        task = GetText(txt,settings.corpus)
+        # from keywords import corpus
+        task = GetText(txt, settings.corpus)
         task.run()
-        QThreadPool.globalInstance().start(task,3)
+        QThreadPool.globalInstance().start(task, 3)
+
+    script = '''
+    document.body.innerText;'''
+
+    def run_javascript():
+        view.page().runJavaScript(script, handle_txt)
+
+    if status == QWebEngineLoadingInfo.LoadStatus.LoadStartedStatus:
+        print("load status", status)
+        QTimer.singleShot(200, run_javascript)
+    if status == QWebEngineLoadingInfo.LoadStatus.LoadSucceededStatus:
+        print("load status", status)
+        run_javascript()
 
 
 # K-Means
@@ -90,146 +103,76 @@ def centroidsDict(centroids, index):
     return centroid_dict
 
 
-class RankPosts(QRunnable):
+def rank_items(items, centroids):
+    corpus = [item.title + '' + item.description for item in items]
+    vectorizer = TfidfVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(corpus)
+    features = vectorizer.get_feature_names_out()
+    tf_idf = pd.DataFrame(data=X.toarray(), columns=features)
+    num_rows = len(corpus)
+    for i in range(len(centroids)):
+        r = centroids.iloc[[i]]
+        matrix = pd.concat([r] * num_rows, ignore_index=True)
+        t = tf_idf.mul(matrix, axis='columns', fill_value=0)
+        sum = t.sum(axis='columns')
+        for index, value in sum.items():
+            if i == 0:
+                items[index].rank = value
+            elif items[index].rank < value:
+                items[index].rank = value
 
-    def __init__(self, kmeans, centroids, items, *args, **kwargs):
+    return items
+
+class GetText(QRunnable):
+    def __init__(self, txt, corpus, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.items = items
-        self.kmeans = kmeans
-        self.centroids = centroids
-        self.c = Connection()
-
-    def process_corpus(self, txt):
-        index = 0
-        corpus = [txt]
-        # Replaces the ASCII '�' symbol with '8'
-        corpus[index] = corpus[index].replace(u'\ufffd', '8')
-        corpus[index] = corpus[index].replace(
-            ',', '')          # Removes commas
-        corpus[index] = corpus[index].rstrip(
-            '\n')              # Removes line breaks
-        # Makes all letters lowercase
-        corpus[index] = corpus[index].casefold()
-
-        # removes specials characters and leaves only words
-        corpus[index] = re.sub('\W_', ' ', corpus[index])
-        # removes numbers and words concatenated with numbers IE h4ck3r. Removes road names such as BR-381.
-        corpus[index] = re.sub("\S*\d\S*", " ", corpus[index])
-        # removes emails and mentions (words with @)
-        corpus[index] = re.sub("\S*@\S*\s?", " ", corpus[index])
-        # removes URLs with http
-        corpus[index] = re.sub(r'http\S+', '', corpus[index])
-        corpus[index] = re.sub(r'www\S+', '', corpus[index])
-        return corpus
-
-    def process_txt(self, txt):
-        vectorizer = TfidfVectorizer(stop_words='english')
-        X = vectorizer.fit_transform(txt)
-        features = vectorizer.get_feature_names_out()
-        tf_idf = pd.DataFrame(data=X.toarray(), columns=features)
-        # final_df = tf_idf
-        # for index,row in self.centroids.iterrows():
-            # tf_idf.mul(row, fill_value=0)
-
-        # print(self.centroids)
-        values = []
-        for i in range(len(self.centroids)):
-            # print(self.centroids.iloc[[i]])
-            r = self.centroids.iloc[[i]]
-            # print(r)
-            # # print("r.T",r.T)
-            t = tf_idf.mul(r,axis='columns', fill_value=0)
-            # print("t")
-            # print(t)
-            sum = t.sum(axis='columns')
-            # print("Cluster:{}".format(i),sum.iat[0])
-            values.append(sum.iat[0])
-
-        return values
-        # sum =tf_idf.sum()
-        # print(sum.iat[0])
-        # for tuple in self.centroids.itertuples():
-        #     print('iter: ',i)
-        #     print(tuple)
-        #     i += 1
+        self.txt = txt.strip()
+        self.corpus = corpus
 
     def run(self):
-        for item in self.items.items:
-            txt = item.title + item.description
-            values = self.process_txt(self.process_corpus(txt))
-            max_val = max(values)
-            item.rank = max_val
-        self.items.items.sort(reverse=True, key=lambda x:x.rank)
-        self.c.done.connect(self.items.updateUi)
-        self.c.done.emit()
-
-    def createTask(kmeans, centroids, items):
-        task = RankPosts(kmeans, centroids, items)
-        QThreadPool.globalInstance().start(task)
+        if len(self.txt) > 0:
+            if len(self.corpus) == 0 or self.corpus[-1] != self.txt:
+                print("Added to corpus")
+                self.corpus.append(self.txt)
 
 
-corpus = []
+def get_centroids(corpus):
+    if len(corpus) == 0:
+        print("No text found: len(corpus) == 0")
+        return
+    vectorizer = TfidfVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(corpus)
+    features = vectorizer.get_feature_names_out()
+    tf_idf = pd.DataFrame(data=X.toarray(), columns=features)
+    final_df = tf_idf
 
+    # Running Kmeans
+    if len(corpus) < 8:
+        k = len(corpus)
+    else:
+        k = 8
+    kmeans_results = run_KMeans(k, final_df)
 
-class KeywordTask(QRunnable):
-
-    def __init__(self, txt, items, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.items = items
-        self.txt = txt
-        self.word_clouds = []
-        self.c = Connection()
-
-    
-
-    def run(self):
-        corpus.append(self.txt)
-        # if len(corpus) < 2:
-        #     return
-        vectorizer = TfidfVectorizer(stop_words='english')
-        X = vectorizer.fit_transform(corpus)
-        features = vectorizer.get_feature_names_out()
-        tf_idf = pd.DataFrame(data=X.toarray(), columns=features)
-        final_df = tf_idf
-
-        # Running Kmeans
-        if len(corpus) < 8:
-            k = len(corpus)
-        else:
-            k = 8
-        kmeans_results = run_KMeans(k, final_df)
-
+    best_result = k
+    if (k > 3):
+        # import math
+        # best_result = math.floor((k+1)/2)
         best_result = k
-        if (k > 3):
-            import math
-            # best_result = math.floor((k+1)/2)
-            best_result = k
-        # kmeans = kmeans_results.get(best_result)
-        print("k: {} best:{} kmeans:{}".format(k, best_result, kmeans_results))
-        kmeans = kmeans_results.get(best_result)
+    # kmeans = kmeans_results.get(best_result)
+    print("k: {} best:{} kmeans:{}".format(k, best_result, kmeans_results))
+    kmeans = kmeans_results.get(best_result)
+    centroids = pd.DataFrame(kmeans.cluster_centers_)
+    centroids.columns = final_df.columns
+    return centroids
 
-        centroids = pd.DataFrame(kmeans.cluster_centers_)
-        centroids.columns = final_df.columns
-        RankPosts.createTask(kmeans, centroids, self.items)
-        self.generateWordClouds(centroids)
-        self.c.done.emit()
 
-        # kw_model = KeyBERT()
-        # keywords = kw_model.extract_keywords(self.txt)
-        # for keyword,freq in keywords:
-        #     if keyword in self.stats:
-        #         self.stats[keyword] += freq
-        #     else:
-        #         self.stats[keyword] = freq
-        # print("{} rows".format(final_df.shape[0]))
-        # print(final_df.T.nlargest(20, 0))
-        # print(self.stats)
+def generateWordClouds(centroids):
+    from wordcloud import WordCloud
+    word_clouds = []
+    for i in range(0, len(centroids)):
+        wordcloud = WordCloud(max_font_size=100, background_color='white')
+        centroid_dict = centroidsDict(centroids, i)
+        wordcloud.generate_from_frequencies(centroid_dict)
+        word_clouds.append(wordcloud)
 
-    def generateWordClouds(self, centroids):
-        from wordcloud import WordCloud
-
-        for i in range(0, len(centroids)):
-            wordcloud = WordCloud(max_font_size=100, background_color='white')
-            centroid_dict = centroidsDict(centroids, i)
-            wordcloud.generate_from_frequencies(centroid_dict)
-            self.word_clouds.append(wordcloud)
+    return word_clouds
