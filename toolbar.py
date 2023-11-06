@@ -1,14 +1,12 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt6.QtCore import pyqtSignal, QObject, Qt, QEventLoop, QThreadPool, QUrl, QThread
-from keywords import KeywordTask, RankPosts
-
 
 class Toolbar(QWidget):
 
-    def __init__(self, items, view,settings, *args, **kwargs):
+    def __init__(self, items, view,application, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.items = items
-        self.settings = settings
+        self.settings = application
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         organize_btn = QPushButton()
@@ -18,14 +16,13 @@ class Toolbar(QWidget):
         self.layout.addWidget(organize_btn)
         self.layout.addWidget(show_btn)
         self.layout.addStretch()
-        organize_btn.clicked.connect(self.onClick)
+        organize_btn.clicked.connect(self.items.organize)
         show_btn.clicked.connect(self.show)
         self.view = view
         self.setObjectName('toolbar')
 
     def onClick(self):
         self.items.organize()
-        self.items.sort_items(self.items.items)
 
     def show(self):
         try:
