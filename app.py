@@ -3,7 +3,7 @@ from items import Items
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile
-from PyQt6.QtCore import QUrl, QThreadPool, Qt, QTimer
+from PyQt6.QtCore import QThreadPool, Qt
 
 from feeds import updateFeeds, tasks
 from toolbar import Toolbar
@@ -28,6 +28,9 @@ from application import application
 
 view = QWebEngineView()
 view.setObjectName('web-engine-view')
+from browser import setupWebEngine
+setupWebEngine(view,application)
+
 scroll = QScrollArea()
 items = Items(view, scroll,application)
 scroll.setWidget(items)
