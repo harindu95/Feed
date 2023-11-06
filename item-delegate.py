@@ -100,7 +100,7 @@ class ItemDelegate(QStyledItemDelegate):
         font = options.font
         self.doc.setDefaultFont(options.font)
         clip = QRectF(0,0,width, height)
-        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
+        ctx = QAbstractTextDocumentLayout.PaintContext()
         ctx.clip = clip
         self.doc.documentLayout().draw(painter, ctx)
         summary_height = self.doc.size().height()

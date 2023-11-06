@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtGui import QPainter, QPixmap,QRegion
 from PyQt6.QtWidgets import QStyle,QStyleOptionViewItem,QWidget, QVBoxLayout, QListView, QStyledItemDelegate, QLabel
-from PyQt6.QtCore import QModelIndex, QSize, QRect
+from PyQt6.QtCore import QModelIndex, QSize, QRect, QPoint
 
 import sys
 import requests
