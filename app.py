@@ -39,6 +39,8 @@ scroll.setWidgetResizable(True)
 scroll.setMinimumWidth(500)
 layout.addWidget(scroll)
 
+QThreadPool.globalInstance().setMaxThreadCount(8)
+
 
 view.load(QUrl("https://duckduckgo.com"))
 window.resize(1224, 750)
