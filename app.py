@@ -3,9 +3,7 @@ from items import Items
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile
-# from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import QUrl, QThreadPool, Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import QThreadPool, Qt
 
 from toolbar import Toolbar
 
@@ -20,40 +18,31 @@ app = QApplication(sys.argv)
 # Create a Qt widget, which will be our window.
 window = QWidget()
 window.setObjectName('window')
-style = '\n'.join(open('style.css').readlines())
-window.setStyleSheet(style)
+from file import readFile
+readFile('style.css',window.setStyleSheet)
 window.setWindowTitle('Feed')
 layout = QHBoxLayout()
 
 from application import application
 
-# view = createEngineView(settings)
 view = QWebEngineView()
 view.setObjectName('web-engine-view')
 from browser import setupWebEngine
 setupWebEngine(view,application)
 
-
-scroll = QScrollArea()
-# scroll.verticalScrollBar().setObjectName('ver')
-
-
-items = Items(view, scroll,application)
-scroll.setWidget(items)
-scroll.setObjectName('scroll-area')
-scroll.setWidgetResizable(True)
-scroll.setMinimumWidth(500)
-layout.addWidget(scroll)
+items = Items(view,application)
+# scroll.setWidget(items)
+# scroll.setObjectName('scroll-area')
+# scroll.setWidgetResizable(True)
+# scroll.setMinimumWidth(500)
+layout.addWidget(items)
 
 QThreadPool.globalInstance().setMaxThreadCount(8)
 
 
 window.resize(1224, 750)
 # Disable cookies
-# view.page().setBackgroundColor(QColor('gray'))
-
 layout.addWidget(view,stretch=1)
-
 toolbar = Toolbar(items,view,application)
 toolbar.callback = view
 layout.addWidget(toolbar)
@@ -64,8 +53,6 @@ window.show()  # IMPORTANT!!!!! Windows are hidden by default.
 view.page().loadingChanged.connect(
     lambda loadinfo,view=view: extract_text(view, loadinfo, application))
 # Start the event loop.
-
-
 app.aboutToQuit.connect(application.close_threads)
 
 app.exec()

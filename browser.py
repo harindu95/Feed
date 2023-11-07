@@ -36,16 +36,7 @@ def getResourceType(type):
         return 'other'
 
 
-def read_filterset():
-    import glob
-    files = glob.glob("./filters/*.txt")
-    rules = []
-    for path in files:
-        with open(path, encoding='utf-8') as f:
-            raw_rules = '\n'.join(f.readlines())
-            rules.append(raw_rules)
-            # self.filterset.add_filter_list(raw_rules,format="standard")
-    return rules
+
 
 
 class WebEngineUrlRequestInterceptor(QWebEngineUrlRequestInterceptor):
@@ -54,26 +45,18 @@ class WebEngineUrlRequestInterceptor(QWebEngineUrlRequestInterceptor):
         super().__init__(*args, **kwargs)
         self.view = view
         self.settings = application
-        self.read_thread = application.createThread()
-        # settings.threads.append(self.read_thread)
-        # self.read_thread.start()
-                
-        from common import GenericWorker
-        #  FuncThread(self.read_filterset)
 
-        read_worker = GenericWorker(read_filterset)
-        read_worker.moveToThread(self.read_thread)
-        n = QThreadPool.globalInstance().activeThreadCount()
-        read_worker.finished.connect(self.initialize, Qt.ConnectionType.QueuedConnection)
-        read_worker.start.emit()
-        
-        # self.rules = []
-        # self.inject_thread = QThread()
-        # self.inject_thread.start()
+        self.read_filterset()        
         self.scripts = {}
 
         self.initialize = False
         self.view.page().loadStarted.connect(self.inject)
+
+    def read_filterset(self):
+        import glob
+        from file import readFiles
+        files = glob.glob("./filters/*.txt")
+        readFiles(files,self.initialize)
 
     def show_readable(self, article):
         doc = '''
