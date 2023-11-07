@@ -1,70 +1,72 @@
 import typing
 from PyQt6 import QtCore, QtGui
 import requests
-from PyQt6.QtWidgets import QStyle,QStyleOptionViewItem,QWidget, QVBoxLayout, QListView, QStyledItemDelegate, QLabel
-from PyQt6.QtCore import QModelIndex, QObject, QUrl, Qt, QTimer, QThread, QAbstractListModel, QVariant, QRect, QSize, QPoint
-from card import Card
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QListView, QLineEdit, QStackedWidget, QLabel
+from PyQt6.QtCore import QModelIndex,  QUrl, Qt, QAbstractListModel, QVariant, pyqtSignal
+from PyQt6.QtGui import QStandardItemModel
+from card.delegate import CardDelegate
 from common import GenericWorker, AsyncGeneratorWorker
-
-
-class ItemsModel(QAbstractListModel):
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.list = []
-
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        return len(self.list)
-
-    def data(self, index: QModelIndex, extra):
-        if index.row() < len(self.list):
-            return self.list[index.row()]
-        else:
-            return QVariant()
-
-    def setData(self, index: QModelIndex, value) -> bool:
-        i = index.row()
-        if i < len(self.list):
-            self.list[i] = value
-        elif i == len(self.list):
-            self.list.insert(i,value)
-        else:
-            return False
-        
-        self.dataChanged.emit(index, index)
-        return True
-        
-    def addItem(self, item):
-        index = self.createIndex(len(self.list), 1,item)
-        self.setData(index, item)
-
+from itemsModel import ItemsModel
 
 class Items(QWidget):
 
-    def __init__(self, view, scroll, application, *args, **kwargs):
+    def __init__(self, view, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.scroll = scroll
         self.application = application
         # self.items = []
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.view = view
+        self.search = QLineEdit()
+        self.search.setObjectName("search-box")
+        self.search.setPlaceholderText("Search")
+        self.search.returnPressed.connect(self.search_items)
+        self.layout.addWidget(self.search)
         self.background_thread = application.createThread()
         self.background_thread.start()
         self.organize_running = False
+        self.stacked = QStackedWidget()
+        self.layout.addWidget(self.stacked)   
         self.list_view = QListView()
-        self.layout.addWidget(self.list_view)
+        self.stacked.addWidget(self.list_view)
+        self.list_view.setObjectName("list-view")
+        self.list_message = QLabel()
+        self.list_message.setObjectName("list-message")
+        self.stacked.addWidget(self.list_message)
         self.list_model = ItemsModel()
         self.list_view.setModel(self.list_model)
         self.list_view.clicked.connect(self.clickItem)
+        self.list_view.verticalScrollBar().valueChanged.connect(self.scroll_changed)
         from card import CardDelegate
         delegate = CardDelegate()
         # delegate = ItemDelegate()
         self.list_view.setItemDelegate(delegate)
         self.list_view.setLayoutMode(QListView.LayoutMode.Batched)
+        self.list_view.setBatchSize(20)
         self.setObjectName('items')
+
+        self.list_model.layoutAboutToBeChanged.connect(lambda:self.show_message("Loading...") )
+        self.list_model.layoutChanged.connect(self.show_list_view)
+        self.list_model.searchEmpty.connect(lambda: self.show_message("No search results found!."))
         # QTimer.singleShot(0,self.fetch_feeds)
         self.fetch_feeds()
+
+    def show_list_view(self):
+        self.stacked.setCurrentIndex(0)
+
+    def show_message(self,msg):
+        self.list_message.setText(msg)
+        self.stacked.setCurrentIndex(1)
+
+    def search_items(self):
+        txt = self.search.text().strip()
+        self.list_model.search(txt)
+
+    def scroll_changed(self, val):
+        max = self.list_view.verticalScrollBar().maximum()
+        dy = max - val
+        if dy < 5 :
+            self.list_model.scroll.emit(val)
 
     def clickItem(self, index):
         item = index.data()
@@ -77,24 +79,12 @@ class Items(QWidget):
         except Exception:
             return
         
-    def add_item(self, item):
-        card = Card(item)
-        self.view_items.append(item)
-        item.cardIndex = len(self.cards)
-        item.index = len(self.cards)
-        self.cards.append(card)
-        # item.widget = card
-        item.rank = 0
-
-        card.c.clicked.connect(lambda card=card: self.clickItem(card))
-        self.layout.addWidget(card)
-
-    def add_items(self, data):
+    def add_items(self, data:list):
         if data is None:
             return
         for feed in data:
-            for item in feed.entries:
-                self.list_model.addItem(item)
+            # print(feed.entries)
+            self.list_model.addItems(feed.entries)
 
 
     def fetch_feeds(self):
@@ -109,21 +99,9 @@ class Items(QWidget):
             if widget is not None:
                 widget.setParent(None)
 
-    def sort_items(self, items):
-        if items == self.items:
-            return
-        else:
-            self.items = items
-        for i, item in enumerate(self.items):
-            if 'cardIndex' in item and item.cardIndex >= 0:
-                card = self.cards[item.cardIndex]
-                self.layout.removeWidget(card)
-                # print(i,item.title,item.rank)
-                self.layout.insertWidget(i, card)
-                item.cardIndex = i
-                # item.index = i
-
-        self.scroll.verticalScrollBar().setValue(0)
+    def sort_items(self,items):
+        self.list_model.setList(items)
+        self.list_view.scrollToTop()
 
 
     def initialize(self, feeds):
@@ -156,7 +134,7 @@ class Items(QWidget):
             print("Organize already running!")
             return
         self.organize_running = True
-        items = self.items[:]
+        items = self.list_model.view_items[:]
         corpus = self.application.corpus
         sortWorker = GenericWorker(Items.organize_items, items, corpus)
         sortWorker.moveToThread(self.background_thread)
