@@ -123,6 +123,15 @@ def parse_rss(html):
 
 #     return feed
 
+@run_in_executor
+def process_description(text):
+    from bs4 import BeautifulSoup
+
+    plain = ' '.join(BeautifulSoup(text, "html.parser").findAll(text=True))
+    # doc.setHtml(text)
+    # plain = doc.toPlainText()
+    return plain.strip()
+
 
 def keys_exists(element, *keys):
     '''
@@ -184,6 +193,8 @@ async def process_feed(rss):
         if post.image_url != '':
             post.image_data = await get_image(post.image_url)
 
+        post.title = await process_description(post.title)
+        post.description = await process_description(post.summary)
 
 # def get_feeds(urls, signal):
 #     record = []
@@ -259,6 +270,7 @@ class AsyncFetchFeeds(QRunnable):
                         print("RSS Feed updated: ", feed.url)
                         print("MSG {}".format(feed['last']['title']))
                         print("MSG {}".format(feed['last']['link']))
+                        await process_feed(rss)
                         self.feeds.append(rss)
                 else:
                     try:
@@ -281,7 +293,7 @@ class AsyncFetchFeeds(QRunnable):
             # self.qt_loop = QEventLoop()
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
-            self.loop.set_debug(True)
+            # self.loop.set_debug(True)
             # loop = asyncio.get_event_loop()
             try:
                 self.loop.run_until_complete(
