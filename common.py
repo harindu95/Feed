@@ -97,22 +97,3 @@ class AsyncGeneratorWorker(QObject):
         self.async_loop.run_until_complete(self.default())
         # self.task()
 
-class AsyncFetch(QObject):
-
-    start = pyqtSignal()
-    data = pyqtSignal([object])
-    finished = pyqtSignal()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        # self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        self.start.connect(self.run)
-        # self.start.connect(self.run, Qt.ConnectionType.QueuedConnection)
-
-    def run(self):
-        from feeds import get_feeds
-        # self.func(*self.args,**self.kwargs)
-        get_feeds(self.kwargs['urls'], self.data)
-        self.finished.emit()
